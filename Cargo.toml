@@ -1,6 +1,6 @@
 [package]
 name = "vynkor-wire"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 rust-version = "1.85.0"
 description = "Vynkor wire protocol: framing, frame MAC, and generated protobuf types shared by the kernel and its SDKs."

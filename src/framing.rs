@@ -126,30 +126,30 @@ pub async fn write_frame_raw<W>(stream: &mut W, frame: &Frame) -> Result<(), Wir
 where
     W: AsyncWrite + Unpin,
 {
-    // Reject oversized payloads before compression: we don't accept inputs that
-    // exceed the protocol limit regardless of how well they might compress.
     if frame.payload.len() > MAX_PAYLOAD_SIZE {
         return Err(WireError::PayloadTooLarge(frame.payload.len()));
     }
 
-    // Compress payloads at or above the threshold when FLAG_COMPRESSED is not
-    // already set and the payload is not raw binary (audio bypasses compression).
-    let (wire_payload, wire_flags): (Arc<[u8]>, u16) = if frame.payload.len() >= COMPRESS_THRESHOLD
+    // PERF-4: compute CRC only when compression changes the payload.
+    // When no compression occurs (below threshold, already compressed, or raw
+    // binary), the existing frame.crc32 is valid — skip the hash entirely.
+    let (wire_payload, wire_flags, wire_crc): (Arc<[u8]>, u16, u32) = if frame.payload.len()
+        >= COMPRESS_THRESHOLD
         && frame.flags & FLAG_COMPRESSED == 0
         && frame.flags & FLAG_RAW_BINARY == 0
     {
         match zstd::bulk::compress(&frame.payload, 3) {
-            Ok(c) if c.len() < frame.payload.len() => (Arc::from(c), frame.flags | FLAG_COMPRESSED),
-            // Common path: no (re)compression needed, so no byte copy either —
-            // just bump the refcount on the shared payload.
-            _ => (frame.payload.clone(), frame.flags),
+            Ok(c) if c.len() < frame.payload.len() => {
+                let compressed = Arc::from(c);
+                let crc = crc32fast::hash(&compressed);
+                (compressed, frame.flags | FLAG_COMPRESSED, crc)
+            }
+            _ => (frame.payload.clone(), frame.flags, frame.crc32),
         }
     } else {
-        (frame.payload.clone(), frame.flags)
+        (frame.payload.clone(), frame.flags, frame.crc32)
     };
 
-    // CRC32 is over the compressed bytes — the bytes actually on the wire.
-    let wire_crc = crc32fast::hash(&wire_payload);
     let wire_frame = Frame {
         magic: frame.magic,
         flags: wire_flags,
