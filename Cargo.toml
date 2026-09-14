@@ -15,7 +15,7 @@ sha2 = "0.10"
 hkdf = "0.12"
 nix = { version = "0.31", features = ["user"] }
 crc32fast = "1"
-zstd = "0.13"
+zstd = "0.14"
 
 # opt-in, off by default: only the manifest feature pulls these (V-01) —
 # SDK consumers keep compiling neither serde nor serde_json nor semver.
