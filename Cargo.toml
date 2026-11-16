@@ -30,4 +30,4 @@ manifest = ["dep:serde", "dep:serde_json", "dep:semver"]
 tempfile = "3"
 
 [build-dependencies]
-prost-build = "0.13"
+prost-build = "0.14"
